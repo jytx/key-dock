@@ -2,7 +2,7 @@
 // 环境编辑、导出配置等各类弹窗。各弹窗以本地草稿（draft）方式编辑，仅在保存时回调上抛。
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { GripVertical, Plus, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Plus, Trash2, X } from 'lucide-react';
 import { DEFAULT_POPUP_POSITION, POPUP_POSITION_OPTIONS } from '../shared/popup-position';
 import type { EnvConfig, FieldConfig, FieldTemplate, ProjectConfig, ProjectGroup, SyncConfig } from '../shared/types';
 
@@ -526,6 +526,10 @@ export function ProjectEnvsModal({
   onSave: (nextEnvs: EnvConfig[]) => void;
 }) {
   const [draft, setDraft] = useState<EnvDraft[]>([]);
+  // 折叠状态：按环境 id 记录各卡片是否收起。用 env.id 而非数组下标做键——
+  // 删除中间的环境后下标会前移，按下标记录会导致折叠状态错位。
+  // 纯 UI 状态，不落入草稿数据（保存时只映射 EnvConfig 字段）。
+  const [collapsedEnvs, setCollapsedEnvs] = useState<Record<string, boolean>>({});
 
   // 打开时将环境数组转为草稿：把数组型字段拍平成逗号分隔文本，便于直接编辑。
   useEffect(() => {
@@ -609,79 +613,92 @@ export function ProjectEnvsModal({
           <div className="wm-card" key={index}>
             <div className="wm-card__hd">
               <strong>{env.name || env.id}</strong>
-              <button className="wm-btn wm-btn--danger" type="button" onClick={() => setDraft((prev) => prev.filter((_, i) => i !== index))}>
-                <Trash2 size={13} /> 删除
-              </button>
-            </div>
-            <div className="wm-card__bd">
-              <div className="wm-grid wm-grid--2">
-                <label className="wm-field">
-                  <span>环境 ID *</span>
-                  <input
-                    value={env.id}
-                    onChange={(event) => setDraft((prev) => prev.map((item, i) => (i === index ? { ...item, id: event.target.value } : item)))}
-                  />
-                </label>
-                <label className="wm-field">
-                  <span>环境名称 *</span>
-                  <input
-                    value={env.name}
-                    onChange={(event) => setDraft((prev) => prev.map((item, i) => (i === index ? { ...item, name: event.target.value } : item)))}
-                  />
-                </label>
-                <label className="wm-field">
-                  <span>Hosts *</span>
-                  <small>英文逗号分隔，例如 10.0.0.1, login.example.com；填主机名即可，不带协议和路径；带非标准端口时可写 app.com:8080 按端口区分环境</small>
-                  <input
-                    value={env.hostsText}
-                    onChange={(event) =>
-                      setDraft((prev) =>
-                        prev.map((item, i) =>
-                          i === index
-                            ? {
-                                ...item,
-                                hostsText: event.target.value,
-                              }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <label className="wm-field">
-                  <span>Path 关键字 *</span>
-                  <small>英文逗号分隔，例如 /login, /admin；留空则匹配该主机下所有页面路径</small>
-                  <input
-                    value={env.pathKeywordsText}
-                    onChange={(event) =>
-                      setDraft((prev) =>
-                        prev.map((item, i) =>
-                          i === index
-                            ? {
-                                ...item,
-                                pathKeywordsText: event.target.value,
-                              }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <label className="wm-field">
-                  <span>重试延迟 *</span>
-                  <small>英文逗号分隔，单位毫秒，例如 0, 500, 1000</small>
-                  <input
-                    value={env.retryDelaysText}
-                    placeholder="0, 500, 1000"
-                    onChange={(event) =>
-                      setDraft((prev) =>
-                        prev.map((item, i) => (i === index ? { ...item, retryDelaysText: event.target.value } : item)),
-                      )
-                    }
-                  />
-                </label>
+              <div className="wm-inline">
+                <button
+                  className="wm-btn"
+                  type="button"
+                  aria-expanded={!collapsedEnvs[env.id]}
+                  aria-label={collapsedEnvs[env.id] ? `展开环境 ${env.name || env.id}` : `收起环境 ${env.name || env.id}`}
+                  onClick={() => setCollapsedEnvs((prev) => ({ ...prev, [env.id]: !prev[env.id] }))}
+                >
+                  {collapsedEnvs[env.id] ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                </button>
+                <button className="wm-btn wm-btn--danger" type="button" onClick={() => setDraft((prev) => prev.filter((_, i) => i !== index))}>
+                  <Trash2 size={13} /> 删除
+                </button>
               </div>
             </div>
+            {collapsedEnvs[env.id] ? null : (
+              <div className="wm-card__bd">
+                <div className="wm-grid wm-grid--2">
+                  <label className="wm-field">
+                    <span>环境 ID *</span>
+                    <input
+                      value={env.id}
+                      onChange={(event) => setDraft((prev) => prev.map((item, i) => (i === index ? { ...item, id: event.target.value } : item)))}
+                    />
+                  </label>
+                  <label className="wm-field">
+                    <span>环境名称 *</span>
+                    <input
+                      value={env.name}
+                      onChange={(event) => setDraft((prev) => prev.map((item, i) => (i === index ? { ...item, name: event.target.value } : item)))}
+                    />
+                  </label>
+                  <label className="wm-field">
+                    <span>Hosts *</span>
+                    <small>英文逗号分隔，例如 10.0.0.1, login.example.com；填主机名即可，不带协议和路径；带非标准端口时可写 app.com:8080 按端口区分环境</small>
+                    <input
+                      value={env.hostsText}
+                      onChange={(event) =>
+                        setDraft((prev) =>
+                          prev.map((item, i) =>
+                            i === index
+                              ? {
+                                  ...item,
+                                  hostsText: event.target.value,
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  </label>
+                  <label className="wm-field">
+                    <span>Path 关键字 *</span>
+                    <small>英文逗号分隔，例如 /login, /admin；留空则匹配该主机下所有页面路径</small>
+                    <input
+                      value={env.pathKeywordsText}
+                      onChange={(event) =>
+                        setDraft((prev) =>
+                          prev.map((item, i) =>
+                            i === index
+                              ? {
+                                  ...item,
+                                  pathKeywordsText: event.target.value,
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  </label>
+                  <label className="wm-field">
+                    <span>重试延迟 *</span>
+                    <small>英文逗号分隔，单位毫秒，例如 0, 500, 1000</small>
+                    <input
+                      value={env.retryDelaysText}
+                      placeholder="0, 500, 1000"
+                      onChange={(event) =>
+                        setDraft((prev) =>
+                          prev.map((item, i) => (i === index ? { ...item, retryDelaysText: event.target.value } : item)),
+                        )
+                      }
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
