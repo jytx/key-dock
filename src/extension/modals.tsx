@@ -617,7 +617,7 @@ export function ProjectEnvsModal({
                 </label>
                 <label className="wm-field">
                   <span>Hosts *</span>
-                  <small>英文逗号分隔，例如 10.0.0.1, login.example.com</small>
+                  <small>英文逗号分隔，例如 10.0.0.1, login.example.com；填主机名即可，不带协议和路径；带非标准端口时可写 app.com:8080 按端口区分环境</small>
                   <input
                     value={env.hostsText}
                     onChange={(event) =>
@@ -636,7 +636,7 @@ export function ProjectEnvsModal({
                 </label>
                 <label className="wm-field">
                   <span>Path 关键字 *</span>
-                  <small>英文逗号分隔，例如 /login, /admin</small>
+                  <small>英文逗号分隔，例如 /login, /admin；留空则匹配该主机下所有页面路径</small>
                   <input
                     value={env.pathKeywordsText}
                     onChange={(event) =>
