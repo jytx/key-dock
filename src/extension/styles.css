@@ -833,8 +833,12 @@ select {
   to { transform: translateX(0); }
 }
 
+/* 账号编辑弹窗（配置页与登录页浮窗共用）：
+   1. 宽度从通用弹窗的 760px 收窄到 560px——账号表单字段少，无需全宽；
+   2. 左右留白 20px，避免标签列紧贴弹窗左缘；
+   3. 标签列加宽至 110px，控件列自适应撑满剩余空间。 */
 .wm-account-editor-modal {
-  width: min(392px, calc(100vw - 32px));
+  width: min(560px, calc(100vw - 32px));
 }
 
 .wm-modal__header,
