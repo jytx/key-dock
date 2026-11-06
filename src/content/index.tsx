@@ -109,12 +109,14 @@ function injectShadowStyles(shadow: ShadowRoot) {
  * 仅需处理两点：
  * 1. `:root` 在 shadow 内不命中任何元素，改为 `:host` 使 CSS 变量可被影子树继承；
  * 2. `body` 在 shadow 内不存在，其字体规则搬到 `:host`，避免浮窗继承宿主页正文字体。
+ * 注意 body 的正则必须带前置边界（行首/空白/逗号）——否则会误伤
+ * `.wm-modal__body` 这类以 body 结尾的类名，把选择器改坏。
  */
 function toShadowStyles(styles: string): string {
   return styles
     .replace(/@import\s+['"][^'"]*['"];?\s*/g, '')
     .replace(/:root\s*\{/g, ':host {')
-    .replace(/body\s*\{/g, ':host {');
+    .replace(/(^|[\s,])body\s*\{/g, '$1:host {');
 }
 
 /** 按命中环境的字段配置，将所选账号写入对应输入框；写值后派发原生事件以兼容受控表单。 */
