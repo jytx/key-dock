@@ -449,11 +449,38 @@ select {
 .wm-field input:focus,
 .wm-field textarea:focus,
 .wm-field select:focus,
+/* 表格内输入框基础样式：与表单输入框（.wm-field input）视觉保持一致。
+   此前仅有 :focus 规则、缺基础样式，导致表格里的 input 落回浏览器默认
+   样式（白框、system 字体、2px 边框），批量录入表格尤其明显。 */
+.wm-table input[type="text"],
+.wm-table input[type="password"] {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  transition: border-color var(--motion-duration), box-shadow var(--motion-duration);
+}
+
+.wm-table input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .wm-table input:focus,
 .wm-table select:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: var(--c-input-focus-shadow, 0 0 0 3px color-mix(in srgb, var(--accent), transparent 80%));
+}
+
+/* 账号弹窗内的表格行高紧凑，单元格内容垂直居中，输入框与勾选框不贴顶。 */
+.wm-account-editor-modal .wm-table td {
+  vertical-align: middle;
 }
 
 .wm-switch {

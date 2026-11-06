@@ -178,11 +178,13 @@ export function BatchAddAccountsModal({ open, config, projectId, envId, onClose,
                   </td>
                   <td>
                     <button
-                      className="wm-btn wm-btn--danger"
+                      className="wm-icon-btn"
                       type="button"
+                      aria-label="删除该行"
+                      title="删除该行"
                       onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
                     >
-                      <Trash2 size={13} /> 删除
+                      <Trash2 size={14} />
                     </button>
                   </td>
                 </tr>
