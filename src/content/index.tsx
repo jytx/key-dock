@@ -88,28 +88,33 @@ function getPanelAnchorStyle(position: PopupPosition): CSSProperties {
   }
 }
 
-/** 把汇总后的扩展样式注入页面 <head>（带去重 id），样式已被改写为限定在根节点内。 */
-function injectStylesheet() {
+/**
+ * 把扩展样式注入 shadow root（带去重 id）。
+ * Shadow DOM 隔离保证：我们的样式不会泄漏到宿主页面（曾因向 <head> 注入整包样式，
+ * 污染宿主页 body 字体与全部表单控件字体），宿主页样式也不会渗入浮窗。
+ */
+function injectShadowStyles(shadow: ShadowRoot) {
   const id = 'web-account-assistant-style';
-  if (document.getElementById(id)) return;
+  if (shadow.getElementById(id)) return;
   const style = document.createElement('style');
   style.id = id;
   const allStyles = [rawPrimitives, rawSemantic, rawComponents, rawStyles].join('\n');
-  style.textContent = toContentStyles(allStyles);
-  document.head.appendChild(style);
+  style.textContent = toShadowStyles(allStyles);
+  shadow.appendChild(style);
 }
 
-function toContentStyles(styles: string): string {
-  // Content CSS is injected into arbitrary host pages; rewrite global selectors so
-  // KeyDock styles stay inside our root and do not leak into the business page.
+/**
+ * 把扩展样式改写为 Shadow DOM 内可用形式。
+ * shadow 内所有规则天然限定在影子树中，无需再做选择器前缀化；
+ * 仅需处理两点：
+ * 1. `:root` 在 shadow 内不命中任何元素，改为 `:host` 使 CSS 变量可被影子树继承；
+ * 2. `body` 在 shadow 内不存在，其字体规则搬到 `:host`，避免浮窗继承宿主页正文字体。
+ */
+function toShadowStyles(styles: string): string {
   return styles
     .replace(/@import\s+['"][^'"]*['"];?\s*/g, '')
-    .replace(/:root\s*\{/g, '#web-account-assistant-root {')
-    .replace('* {', '#web-account-assistant-root, #web-account-assistant-root * {')
-    .replace(/html,\s*body,\s*#root\s*\{[^}]*\}/, '#web-account-assistant-root { color: var(--text); }')
-    .replace(/\.(wm-theme-tech-dark|wm-theme-minimal-light|wm-theme-vivid-color)/g, '#web-account-assistant-root.$1')
-    .replace(/\.(wm-font-small|wm-font-medium|wm-font-large)/g, '#web-account-assistant-root.$1')
-    .replace(/\.(wm-motion-off)/g, '#web-account-assistant-root.$1');
+    .replace(/:root\s*\{/g, ':host {')
+    .replace(/body\s*\{/g, ':host {');
 }
 
 /** 按命中环境的字段配置，将所选账号写入对应输入框；写值后派发原生事件以兼容受控表单。 */
@@ -233,9 +238,9 @@ function Panel() {
   }, [matched]);
 
   useEffect(() => {
-    const root = document.getElementById('web-account-assistant-root');
-    if (!root || !appConfig) return;
-    root.className = getAppearanceClassName(appConfig.global.appearance);
+    if (!panelMountPoint || !appConfig) return;
+    // 主题类挂在 shadow 内的挂载容器上，shadow 内样式规则据此生效。
+    panelMountPoint.className = getAppearanceClassName(appConfig.global.appearance);
   }, [appConfig]);
 
   useEffect(() => {
@@ -288,7 +293,9 @@ function Panel() {
         setAccountPicker(null);
         return;
       }
-      if (accountPickerRef.current?.contains(event.target as Node)) return;
+      // 事件穿过 shadow 边界时 composedPath 仍包含影子树内的真实节点，
+      // 而 event.target 会被 retarget 为 shadow host，不能用 contains 判断。
+      if (accountPickerRef.current && event.composedPath().includes(accountPickerRef.current)) return;
       if (!isConfiguredInputTarget(event.target, matched)) {
         setAccountPicker(null);
         return;
@@ -647,23 +654,29 @@ function Panel() {
 // 启用着的另一份实例下次页面加载时才能正常占用并工作。
 let panelRoot: Root | null = null;
 let panelHost: HTMLElement | null = null;
+// shadow 内的 React 挂载容器：主题类需要挂在它上面，shadow 内样式规则才能命中。
+let panelMountPoint: HTMLElement | null = null;
 
 function mountPanel() {
   // 根节点已被（本实例或另一实例）占用则不重复挂载。
   if (document.getElementById('web-account-assistant-root')) return;
-  injectStylesheet();
-  // Keep all injected UI under a single stable root so page-guard, scoped CSS and
-  // host-page cleanup can reason about one DOM boundary.
+  // 全部注入 UI 收进 Shadow DOM：宿主页样式进不来、我们的样式出不去，
+  // 从根本上避免扩展影响宿主页面（含用户自己的前端项目）。
   const host = document.createElement('div');
   host.id = 'web-account-assistant-root';
   (document.body ?? document.documentElement).appendChild(host);
+  const shadow = host.attachShadow({ mode: 'open' });
+  injectShadowStyles(shadow);
+  const mountPoint = document.createElement('div');
+  shadow.appendChild(mountPoint);
   panelHost = host;
-  panelRoot = createRoot(host);
+  panelMountPoint = mountPoint;
+  panelRoot = createRoot(mountPoint);
   panelRoot.render(<Panel />);
 }
 
 function unmountPanel() {
-  // 释放共享资源：卸载 React、移除根节点与样式节点，让另一份启用实例能够接管。
+  // 释放共享资源：卸载 React、移除根节点（shadow 与其中样式随之销毁），让另一份启用实例能够接管。
   if (panelRoot) {
     panelRoot.unmount();
     panelRoot = null;
@@ -672,6 +685,8 @@ function unmountPanel() {
     panelHost.parentNode.removeChild(panelHost);
   }
   panelHost = null;
+  panelMountPoint = null;
+  // 兼容清理：移除旧版本遗留在页面 <head> 中的样式节点（新版样式已收进 shadow）。
   document.getElementById('web-account-assistant-style')?.remove();
 }
 

@@ -71,6 +71,10 @@ export function AccountEditorModal({
   // 将 Tab 焦点限制在弹窗内循环，防止焦点逃逸到背景页面。
   const trapFocus = useCallback((event: KeyboardEvent) => {
     if (event.key !== 'Tab' || !dialogRef.current) return;
+    // 焦点位于 Shadow DOM 内时 document.activeElement 是 shadow host，
+    // 需取 shadowRoot.activeElement 才是真实焦点元素（登录页浮窗场景）。
+    const activeHost = document.activeElement as HTMLElement | null;
+    const active = (activeHost?.shadowRoot?.activeElement as HTMLElement | null) ?? activeHost;
     const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
@@ -78,12 +82,12 @@ export function AccountEditorModal({
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
     if (event.shiftKey) {
-      if (document.activeElement === first) {
+      if (active === first) {
         event.preventDefault();
         last.focus();
       }
     } else {
-      if (document.activeElement === last) {
+      if (active === last) {
         event.preventDefault();
         first.focus();
       }
@@ -101,7 +105,9 @@ export function AccountEditorModal({
   // 打开时聚焦首个可聚焦元素并装载焦点陷阱；关闭时还原焦点。
   useEffect(() => {
     if (!open) return;
-    triggerRef.current = document.activeElement as HTMLElement;
+    // 打开前焦点可能位于 Shadow DOM 内（登录页浮窗），记录真实焦点元素而非 shadow host。
+    const activeHost = document.activeElement as HTMLElement | null;
+    triggerRef.current = (activeHost?.shadowRoot?.activeElement as HTMLElement | null) ?? activeHost;
     const timer = setTimeout(() => {
       const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
