@@ -18,11 +18,10 @@ type ActiveTab = {
   url?: string;
 };
 
-// 取 manifest 版本号的「主.次」短版本用于展示（忽略修订号）。
-function getShortVersion(): string {
-  const version = chrome.runtime?.getManifest?.()?.version ?? '0.1';
-  const [major, minor] = version.split('.');
-  return [major, minor].filter(Boolean).join('.');
+// 展示 manifest 完整版本号（四段式，如 1.0.2.0），
+// 每个构建批次递增一位，便于用户确认加载的确实是新版本。
+function getDisplayVersion(): string {
+  return chrome.runtime?.getManifest?.()?.version ?? APP_INFO.version;
 }
 
 function toUrlLike(urlText: string) {
@@ -133,7 +132,7 @@ function Popup() {
             <img className="wm-popup__logo" src={chrome.runtime.getURL('icons/logo.svg')} alt="" />
             <strong>{APP_INFO.productName}</strong>
           </span>
-          <span className="wm-popup__version">v{getShortVersion()}</span>
+          <span className="wm-popup__version">v{getDisplayVersion()}</span>
         </header>
 
         <button className="wm-popup__item wm-popup__toggle-item" type="button" role="switch" aria-checked={enabled} onClick={() => void toggleEnabled()}>
