@@ -67,8 +67,8 @@ export function duplicateProject(config: AppConfig, projectId: string): AppConfi
     name = `${source.name} 副本${seq}`;
     seq += 1;
   }
-  // cloneConfig 返回全新对象，可安全改写（不改动入参）。
-  const copy = cloneConfig(source);
+  // JSON 深拷生成全新对象，可安全改写（不改动入参）。
+  const copy: ProjectConfig = JSON.parse(JSON.stringify(source));
   copy.id = createId('project');
   copy.name = name;
   for (const env of copy.envs ?? []) {
