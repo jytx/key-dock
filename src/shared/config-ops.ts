@@ -1,5 +1,6 @@
 // 配置的不可变写操作：对项目/字段/环境/账号做增删改，每次返回新配置并递增本地版本号。
 import { cloneConfig } from './storage';
+import { createId } from './id';
 import type { AccountRecord, AppConfig, EnvConfig, FieldConfig, ProjectConfig } from './types';
 
 // 按 id 插入或更新（命中则替换，否则追加），全程深拷贝避免改动入参。
@@ -42,6 +43,42 @@ export function saveProject(config: AppConfig, project: ProjectConfig): AppConfi
 export function removeProject(config: AppConfig, projectId: string): AppConfig {
   const next = cloneConfig(config);
   next.projects = next.projects.filter((item) => item.id !== projectId);
+  next.meta = {
+    ...(next.meta ?? {}),
+    lastUpdatedAt: new Date().toISOString(),
+    localRevision: (next.meta?.localRevision ?? 0) + 1,
+  };
+  return next;
+}
+
+/**
+ * 复制项目：整套字段/环境/账号克隆到列表末尾。
+ * 项目/环境/账号的 id 全部重新生成——id 是合并引擎的稳定标识，复制品必须全新，
+ * 否则远端合并时会与原项目相互覆盖串数据；字段以 key 为标识无需重建，
+ * 账号 values 与默认标记原样保留。名称追加「副本」后缀，重名时递增数字。
+ */
+export function duplicateProject(config: AppConfig, projectId: string): AppConfig {
+  const source = config.projects.find((item) => item.id === projectId);
+  if (!source) return config;
+  const existingNames = new Set(config.projects.map((item) => item.name));
+  let name = `${source.name} 副本`;
+  let seq = 2;
+  while (existingNames.has(name)) {
+    name = `${source.name} 副本${seq}`;
+    seq += 1;
+  }
+  // cloneConfig 返回全新对象，可安全改写（不改动入参）。
+  const copy = cloneConfig(source);
+  copy.id = createId('project');
+  copy.name = name;
+  for (const env of copy.envs ?? []) {
+    env.id = createId('env');
+    for (const account of env.accounts ?? []) {
+      account.id = createId('account');
+    }
+  }
+  const next = cloneConfig(config);
+  next.projects = [...next.projects, copy];
   next.meta = {
     ...(next.meta ?? {}),
     lastUpdatedAt: new Date().toISOString(),

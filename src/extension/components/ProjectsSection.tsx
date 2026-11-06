@@ -1,8 +1,8 @@
 // 项目管理分区：按分组/名称筛选项目列表，并提供项目、字段、环境的新增/编辑/删除入口。
 import { useMemo, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Copy, Pencil, Plus, Trash2 } from 'lucide-react';
 import { DEFAULT_PROJECT_GROUP_CODE } from '../../shared/defaults';
-import { saveProject, removeProject } from '../../shared/config-ops';
+import { duplicateProject, saveProject, removeProject } from '../../shared/config-ops';
 import { shouldUseProjectDrawer } from '../../shared/theme';
 import { createBlankProject, syncAccountsWithFields, replaceProject, type ToastVariant } from '../helpers';
 import { ProjectEditorModal, ProjectFieldsModal, ProjectEnvsModal } from '../modals';
@@ -62,6 +62,13 @@ export function ProjectsSection({ config, persist }: ProjectsSectionProps) {
     if (!project) return;
     if (!confirm(`确认删除项目 ${project.name} ?`)) return;
     await persist(removeProject(config, projectId), '项目已删除');
+  }
+
+  // 复制项目：整套字段/环境/账号克隆，id 全部重建，名称自动加「副本」后缀；非破坏操作无需确认。
+  async function copyProject(projectId: string) {
+    const project = config.projects.find((item) => item.id === projectId);
+    if (!project) return;
+    await persist(duplicateProject(config, projectId), `已复制项目 ${project.name}`);
   }
 
   // 保存字段配置：字段变更后同步账号 values，剔除废弃字段并补齐新增字段。
@@ -148,6 +155,9 @@ export function ProjectsSection({ config, persist }: ProjectsSectionProps) {
                         <div className="wm-table__actions">
                           <button className="wm-btn" type="button" onClick={() => setProjectModal({ open: true, originalId: project.id, project })}>
                             <Pencil size={13} /> 编辑
+                          </button>
+                          <button className="wm-btn" type="button" onClick={() => void copyProject(project.id)}>
+                            <Copy size={13} /> 复制
                           </button>
                           <button className="wm-btn" type="button" onClick={() => setFieldModalProjectId(project.id)}>
                             字段配置
