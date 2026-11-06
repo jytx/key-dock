@@ -1,11 +1,11 @@
 {
   "name": "keydock",
   "private": true,
-  "version": "1.0.2.3",
+  "version": "1.0.2.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node ./node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/bin/esbuild src/content/index.tsx --bundle --format=iife --platform=browser --target=es2022 --jsx=automatic --define:process.env.NODE_ENV=\\\"production\\\" --loader:.css=text --minify --outfile=dist/content.js && node ./node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/bin/esbuild src/content/page-guard.ts --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=dist/page-guard.js",
+    "build": "vite build && node node_modules/esbuild/bin/esbuild src/content/index.tsx --bundle --format=iife --platform=browser --target=es2022 --jsx=automatic --define:process.env.NODE_ENV=\\\"production\\\" --loader:.css=text --minify --outfile=dist/content.js && node node_modules/esbuild/bin/esbuild src/content/page-guard.ts --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=dist/page-guard.js",
     "build:dev": "KEYDOCK_BUILD=dev pnpm build",
     "gen:dev-icons": "node scripts/gen-dev-icons.mjs",
     "check": "tsc -p tsconfig.json --noEmit"
@@ -20,6 +20,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "esbuild": "0.21.5",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }
