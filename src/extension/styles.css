@@ -861,6 +861,18 @@ select {
   gap: 10px;
 }
 
+/* 账号编辑弹窗（配置页与登录页浮窗共用）：
+   1. 左右留白略大于通用弹窗，避免标签列紧贴弹窗左缘；
+   2. 标签列加宽、控件列自适应撑满，消除 760px 弹窗内表单只占 340px、
+      右侧大片空白导致的「挤在左侧」观感。 */
+.wm-account-editor-modal .wm-modal__body {
+  padding: 14px 20px;
+}
+
+.wm-account-editor-modal .wm-field--aligned {
+  grid-template-columns: 110px minmax(0, 1fr);
+}
+
 .wm-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -66,6 +66,12 @@ export function AccountEditorModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   // 记录打开弹窗前的焦点元素，关闭时归还焦点（无障碍）。
   const triggerRef = useRef<HTMLElement | null>(null);
+  // 用 ref 持有最新的 onClose：其闭包随父组件渲染变化，若直接进入 effect 依赖，
+  // 会导致键盘监听器反复重装，连带把焦点记录与自动聚焦逻辑打乱。
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   const [titleId] = useState(() => `wm-account-modal-title-${++accountModalIdCounter}`);
 
   // 将 Tab 焦点限制在弹窗内循环，防止焦点逃逸到背景页面。
@@ -114,10 +120,18 @@ export function AccountEditorModal({
       );
       firstFocusable?.focus();
     }, 0);
-    document.addEventListener('keydown', trapFocus);
+    // 键盘交互：Escape 关闭弹窗；Tab/Shift+Tab 在弹窗内循环（焦点陷阱）。
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      trapFocus(event);
+    };
+    document.addEventListener('keydown', onKeyDown);
     return () => {
       clearTimeout(timer);
-      document.removeEventListener('keydown', trapFocus);
+      document.removeEventListener('keydown', onKeyDown);
       triggerRef.current?.focus();
     };
   }, [open, trapFocus]);

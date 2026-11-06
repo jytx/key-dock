@@ -37,6 +37,12 @@ function ModalShell({ open, title, width = 900, mode = 'modal', onClose, childre
   // 记录弹窗打开前的焦点元素（触发者），关闭时把焦点归还回去。
   const triggerRef = useRef<HTMLElement | null>(null);
   const [titleId] = useState(() => `wm-modal-title-${++modalIdCounter}`);
+  // 用 ref 持有最新的 onClose：其闭包随父组件渲染变化，若直接进入 effect 依赖，
+  // 会导致键盘监听器反复重装，连带把焦点记录与自动聚焦逻辑打乱。
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   // 焦点陷阱：Tab/Shift+Tab 在弹窗内部循环，避免焦点跑到弹窗外的页面元素上。
   const trapFocus = useCallback((event: KeyboardEvent) => {
@@ -73,10 +79,18 @@ function ModalShell({ open, title, width = 900, mode = 'modal', onClose, childre
       );
       firstFocusable?.focus();
     }, 0);
-    document.addEventListener('keydown', trapFocus);
+    // 键盘交互：Escape 关闭弹窗；Tab/Shift+Tab 在弹窗内循环（焦点陷阱）。
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      trapFocus(event);
+    };
+    document.addEventListener('keydown', onKeyDown);
     return () => {
       clearTimeout(timer);
-      document.removeEventListener('keydown', trapFocus);
+      document.removeEventListener('keydown', onKeyDown);
       // 弹窗关闭/卸载时把焦点还给打开它的元素。
       triggerRef.current?.focus();
     };
