@@ -658,6 +658,8 @@ let panelRoot: Root | null = null;
 let panelHost: HTMLElement | null = null;
 // shadow 内的 React 挂载容器：主题类需要挂在它上面，shadow 内样式规则才能命中。
 let panelMountPoint: HTMLElement | null = null;
+// host 守护观察器：监听 body 子节点变化，host 被外部删除时自动重建。
+let panelObserver: MutationObserver | null = null;
 
 function mountPanel() {
   // 根节点已被（本实例或另一实例）占用则不重复挂载。
@@ -675,9 +677,16 @@ function mountPanel() {
   panelMountPoint = mountPoint;
   panelRoot = createRoot(mountPoint);
   panelRoot.render(<Panel />);
+  // 重度 SPA（如 Kibana）的路由切换可能清理 body 子节点，把注入根节点
+  // 当垃圾 DOM 删掉导致浮窗静默消失；挂守护，host 丢失且本实例仍启用时自动重建。
+  watchPanelHost();
 }
 
 function unmountPanel() {
+  if (panelObserver) {
+    panelObserver.disconnect();
+    panelObserver = null;
+  }
   // 释放共享资源：卸载 React、移除根节点（shadow 与其中样式随之销毁），让另一份启用实例能够接管。
   if (panelRoot) {
     panelRoot.unmount();
@@ -690,6 +699,18 @@ function unmountPanel() {
   panelMountPoint = null;
   // 兼容清理：移除旧版本遗留在页面 <head> 中的样式节点（新版样式已收进 shadow）。
   document.getElementById('web-account-assistant-style')?.remove();
+}
+
+/** 监听 body 子节点：host 被外部移除且本实例仍持有 React root（启用态）时，自动重建注入。 */
+function watchPanelHost() {
+  if (panelObserver) return;
+  panelObserver = new MutationObserver(() => {
+    // 未启用（无 root）或 host 仍在时不动作；重建走 mountPanel，其内部有占用检查，不会重复挂载。
+    if (!panelRoot) return;
+    if (document.getElementById('web-account-assistant-root')) return;
+    mountPanel();
+  });
+  panelObserver.observe(document.body ?? document.documentElement, { childList: true });
 }
 
 async function syncEnabledState() {

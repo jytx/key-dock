@@ -9,7 +9,7 @@
 把散落在各个系统、各套环境里的账号「钥匙」，统一停靠、随取随填。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-1.0.2.4-38b6ff.svg)
+![Version](https://img.shields.io/badge/version-1.0.2.6-38b6ff.svg)
 ![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest%20V3-1ce8a0.svg)
 ![React 18](https://img.shields.io/badge/React-18-61dafb.svg)
 ![TypeScript 5](https://img.shields.io/badge/TypeScript-5-3178c6.svg)
