@@ -1,9 +1,10 @@
 // 通用账号新增/编辑弹窗，登录页与配置管理页共用。
 // 负责按项目字段定义渲染表单、必填校验、敏感字段明文切换，以及（可选）项目/环境上下文选择。
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff, Trash2, X } from 'lucide-react';
 import { createAccountDraft } from './account-utils';
 import { createId } from './id';
+import { useModalKeyboard } from './use-modal-keyboard';
 import type { AccountRecord, ProjectConfig } from './types';
 
 // 递增计数器，为每个弹窗实例生成唯一 title id（用于 aria-labelledby）。
@@ -64,41 +65,10 @@ export function AccountEditorModal({
   // 记录哪些敏感字段已切换为明文显示，key 为字段 key。
   const [revealedFields, setRevealedFields] = useState<Record<string, boolean>>({});
   const dialogRef = useRef<HTMLDivElement>(null);
-  // 记录打开弹窗前的焦点元素，关闭时归还焦点（无障碍）。
-  const triggerRef = useRef<HTMLElement | null>(null);
-  // 用 ref 持有最新的 onClose：其闭包随父组件渲染变化，若直接进入 effect 依赖，
-  // 会导致键盘监听器反复重装，连带把焦点记录与自动聚焦逻辑打乱。
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  });
   const [titleId] = useState(() => `wm-account-modal-title-${++accountModalIdCounter}`);
 
-  // 将 Tab 焦点限制在弹窗内循环，防止焦点逃逸到背景页面。
-  const trapFocus = useCallback((event: KeyboardEvent) => {
-    if (event.key !== 'Tab' || !dialogRef.current) return;
-    // 焦点位于 Shadow DOM 内时 document.activeElement 是 shadow host，
-    // 需取 shadowRoot.activeElement 才是真实焦点元素（登录页浮窗场景）。
-    const activeHost = document.activeElement as HTMLElement | null;
-    const active = (activeHost?.shadowRoot?.activeElement as HTMLElement | null) ?? activeHost;
-    const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey) {
-      if (active === first) {
-        event.preventDefault();
-        last.focus();
-      }
-    } else {
-      if (active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-  }, []);
+  // 键盘交互（ESC 关闭 / Tab 焦点陷阱 / 焦点归还）抽为共享 hook，与批量添加弹窗共用。
+  useModalKeyboard(open, dialogRef, onClose);
 
   // 每次打开或切换项目/账号时，按项目字段重建草稿并清空校验、明文显示状态。
   useEffect(() => {
@@ -107,34 +77,6 @@ export function AccountEditorModal({
     setRequiredErrors({});
     setRevealedFields({});
   }, [account, open, project]);
-
-  // 打开时聚焦首个可聚焦元素并装载焦点陷阱；关闭时还原焦点。
-  useEffect(() => {
-    if (!open) return;
-    // 打开前焦点可能位于 Shadow DOM 内（登录页浮窗），记录真实焦点元素而非 shadow host。
-    const activeHost = document.activeElement as HTMLElement | null;
-    triggerRef.current = (activeHost?.shadowRoot?.activeElement as HTMLElement | null) ?? activeHost;
-    const timer = setTimeout(() => {
-      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      firstFocusable?.focus();
-    }, 0);
-    // 键盘交互：Escape 关闭弹窗；Tab/Shift+Tab 在弹窗内循环（焦点陷阱）。
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onCloseRef.current();
-        return;
-      }
-      trapFocus(event);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('keydown', onKeyDown);
-      triggerRef.current?.focus();
-    };
-  }, [open, trapFocus]);
 
   if (!open || !project || !draft) return null;
   const projectOptions = projects && projects.length > 0 ? projects : [project];

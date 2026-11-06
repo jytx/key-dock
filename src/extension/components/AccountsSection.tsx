@@ -6,6 +6,7 @@ import { AccountEditorModal } from '../../shared/AccountEditorModal';
 import { saveAccount, removeAccount } from '../../shared/config-ops';
 import { DEFAULT_PROJECT_GROUP_CODE } from '../../shared/defaults';
 import { accountInfoText, accountSearchText, type ToastVariant } from '../helpers';
+import { BatchAddAccountsModal } from './BatchAddAccountsModal';
 import type { AccountRecord, AppConfig, EnvConfig, ProjectConfig } from '../../shared/types';
 
 type AccountsSectionProps = {
@@ -32,6 +33,8 @@ export function AccountsSection({ config, persist }: AccountsSectionProps) {
     envId: string;
     account?: AccountRecord | null;
   }>({ open: false, projectId: '', envId: '', account: null });
+  // 批量添加弹窗开关。
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
 
   const projectGroups = config.projectGroups ?? [];
 
@@ -113,6 +116,17 @@ export function AccountsSection({ config, persist }: AccountsSectionProps) {
     );
   }
 
+  // 批量添加：逐行写入指定环境（saveAccount 保持不可变与「同环境唯一默认」语义），
+  // 全部写入同一份新配置后一次性落盘，避免每条记录都触发持久化。
+  async function batchSaveAccounts(projectId: string, envId: string, records: AccountRecord[]) {
+    let next = config;
+    for (const record of records) {
+      next = saveAccount(next, projectId, envId, record);
+    }
+    await persist(next, `已添加 ${records.length} 个账号`);
+    setBatchModalOpen(false);
+  }
+
   return (
     <>
       <div className="wm-sections">
@@ -144,6 +158,9 @@ export function AccountsSection({ config, persist }: AccountsSectionProps) {
                 }}
               >
                 <Plus size={14} /> 新增账号
+              </button>
+              <button className="wm-btn" type="button" onClick={() => setBatchModalOpen(true)}>
+                <Plus size={14} /> 批量添加
               </button>
             </div>
           </div>
@@ -296,6 +313,16 @@ export function AccountsSection({ config, persist }: AccountsSectionProps) {
           }));
         }}
         onSave={(record) => void saveAccountDraft(record)}
+      />
+
+      {/* 批量添加弹窗：默认落在当前筛选的项目/环境上下文，未选则退回首个项目及其首个环境。 */}
+      <BatchAddAccountsModal
+        open={batchModalOpen}
+        config={config}
+        projectId={selectedAccountProjectId || config.projects[0]?.id || ''}
+        envId={selectedAccountEnvId || selectedAccountProject?.envs[0]?.id || ''}
+        onClose={() => setBatchModalOpen(false)}
+        onSave={(projectId, envId, records) => void batchSaveAccounts(projectId, envId, records)}
       />
     </>
   );
