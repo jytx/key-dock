@@ -4,7 +4,7 @@ export const APP_INFO = {
   productName: '钥栈',
   englishName: 'KeyDock',
   displayName: '钥栈 KeyDock',
-  version: '1.0.2.8',
+  version: '1.0.2.9',
   description: '多环境 Web 账号管理与登录填充 Chrome 插件。',
   homepageUrl: 'https://keydock.asgc.fun',
   githubUrl: 'https://github.com/aoshiguchen/key-dock',

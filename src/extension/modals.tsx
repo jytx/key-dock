@@ -2,8 +2,9 @@
 // 环境编辑、导出配置等各类弹窗。各弹窗以本地草稿（draft）方式编辑，仅在保存时回调上抛。
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, GripVertical, Plus, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, GripVertical, Plus, Trash2, X } from 'lucide-react';
 import { DEFAULT_POPUP_POSITION, POPUP_POSITION_OPTIONS } from '../shared/popup-position';
+import { createId } from '../shared/id';
 import type { EnvConfig, FieldConfig, FieldTemplate, ProjectConfig, ProjectGroup, SyncConfig } from '../shared/types';
 
 // 用于为每个弹窗生成唯一的 title id（aria-labelledby），保证无障碍标注互不冲突。
@@ -544,6 +545,28 @@ export function ProjectEnvsModal({
     );
   }, [open, project]);
 
+  // 复制环境：连同账号整体克隆到草稿末尾。环境与账号 id 全部重建——id 是合并
+  // 引擎的稳定标识，复制品必须全新；账号 values 与默认标记、hosts/路径/重试配置
+  // 原样保留。名称追加「副本」后缀，重名时递增数字。新副本默认展开（无折叠记录）。
+  function copyEnv(envId: string) {
+    const source = draft.find((item) => item.id === envId);
+    if (!source) return;
+    const existingNames = new Set(draft.map((item) => item.name));
+    let name = `${source.name} 副本`;
+    let seq = 2;
+    while (existingNames.has(name)) {
+      name = `${source.name} 副本${seq}`;
+      seq += 1;
+    }
+    const copy: EnvDraft = {
+      ...clone(source),
+      id: createId('env'),
+      name,
+      accounts: (source.accounts ?? []).map((account) => ({ ...clone(account), id: createId('account') })),
+    };
+    setDraft((prev) => [...prev, copy]);
+  }
+
   return (
     <ModalShell
       open={open && Boolean(project)}
@@ -614,6 +637,15 @@ export function ProjectEnvsModal({
             <div className="wm-card__hd">
               <strong>{env.name || env.id}</strong>
               <div className="wm-inline">
+                <button
+                  className="wm-btn"
+                  type="button"
+                  aria-label={`复制环境 ${env.name || env.id}`}
+                  title={`复制环境 ${env.name || env.id}`}
+                  onClick={() => copyEnv(env.id)}
+                >
+                  <Copy size={13} />
+                </button>
                 <button
                   className="wm-btn"
                   type="button"
